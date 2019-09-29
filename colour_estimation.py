@@ -6,8 +6,9 @@ import numpy as np
 import glob
 import matplotlib.pyplot as plt
 from statistics import mean
-from pose_est_theta import process_pose_1
+from pose_est_theta import pose_estimation
 import time
+#import pandas as pd
 
 #Global variables
 area_anomaly = [] #List for detection of area anomalies
@@ -16,12 +17,46 @@ fy = 686.77
 cx = 265.02
 cy = 243.98
 
+#For testing
+#read_text = pd.read_csv("/home/varghese/data_12th_Sept/2019-09-11-18-53-27/data_analyze.txt")
+#read_count = 0
 class contour_process:
 
-    def validate_cnt(cnt):
+    def __init__(self):
+       self.img_yuv = 0
+       self.hist = 0
+       self.v_channel = 0
+       self.lower_thresh = 0
+       self.upper_thresh = 0
+       self.mask = 0
+       self.mask_erode = 0
+       self.kernel_erode = 0
+       self.cnt = 0
+       self.box_all = []
+
+    def clear_all(self):
+
+       self.img_yuv = 0
+       self.hist = 0
+       self.v_channel = 0
+       self.lower_thresh = 0
+       self.upper_thresh = 0
+       self.mask = 0
+       self.mask_erode = 0
+       self.kernel_erode = 0
+       self.cnt = 0
+       self.box_all = []
+       
+    def validate_cnt(self,cnt):
         global fy
-        depth = 400
+        global read_text
+        global read_count
         threshold = 20
+        depth = 300
+        #depth = read_text.iloc[read_count,0]
+        #depth = float(depth)
+        #read_count = read_count + 1
+    
         perimeter_cnt = cv.arcLength(cnt,True)
 
         pixel_length = (fy * 30)/(depth)
@@ -32,7 +67,7 @@ class contour_process:
         print("perimeter_cnt:",perimeter_cnt)
         print("perimeter_depth:",perimeter_depth)
         
-        if(abs(perimeter_cnt - perimeter_depth)<=20):
+        if(abs(perimeter_cnt - perimeter_depth)<=threshold):
             return 1 #Indicates that the contour should be considered for further processing
         else:
             return 0
@@ -71,7 +106,7 @@ class contour_process:
         for i in range(0, len(hierarchy[0])):
             if(hierarchy[0][i][3] == 0):
                 #Validating the contours using area considerations   
-                flag_valid_cnt = validate_cnt(self.cnt[i])
+                flag_valid_cnt = self.validate_cnt(self.cnt[i])
                 if(flag_valid_cnt == 1):
                     rect = cv.minAreaRect(self.cnt[i])
                     #print("rect:",rect)
@@ -126,13 +161,13 @@ class contour_process:
         # cv.waitKey(0)
 
         #Analysing in YUV channel
-        self.img_yuv = cv.cvtColor(img , cv.COLOR_BGR2YUV)
-        v_channel = img_yuv[:,:,2]
+        img_yuv = cv.cvtColor(img , cv.COLOR_BGR2YUV)
+        self.v_channel = img_yuv[:,:,2]
 
-        winName_1 = "V channel"
-        cv.namedWindow(winName_1 , cv.WINDOW_NORMAL)
-        cv.imshow(winName_1 , v_channel)
-        cv.waitKey(0)
+        #winName_1 = "V channel"
+        #cv.namedWindow(winName_1 , cv.WINDOW_NORMAL)
+        #cv.imshow(winName_1 , self.v_channel)
+        #cv.waitKey(0)
 
         #Calculating and plotting histograms
         #plt.title("Histogram analysis")
@@ -146,11 +181,11 @@ class contour_process:
         #cv.imshow(winName,th)
         #cv.waitKey(0)
         
-        self.hist = cv.calcHist([v_channel],[0],None,[256],[0,256])
+        self.hist = cv.calcHist([self.v_channel],[0],None,[256],[0,256])
         
-        plt.plot(hist)
-        plt.xlim([0,256])
-        plt.show()
+        #plt.plot(self.hist)
+        #plt.xlim([0,256])
+        #plt.show()
 
 
         
@@ -159,11 +194,11 @@ class contour_process:
         #print("std_v:",std_v)
         std_v = 33.0   #This should be calculated dynamically
 
-        mean_v = np.mean(v_channel)
+        mean_v = np.mean(self.v_channel)
         #print("mean_v:",mean_v)
         #inp = input("waiting for input...")
 
-        mean = np.where(hist == np.amax(hist)) #Mean is considered as the maximum point in the histogram
+        mean = np.where(self.hist == np.amax(self.hist)) #Mean is considered as the maximum point in the histogram
         #print("mean:",mean)
         #lower_thresh_1 = 0
         #print("lower_thresh_1:",lower_thresh_1)
@@ -186,7 +221,7 @@ class contour_process:
         #mask_2 = cv.inRange(v_channel,lower_thresh_2,upper_thresh_2)
         #mask = mask_1 + mask_2
 
-        self.mask = cv.inRange(v_channel , lower_thresh , upper_thresh)
+        self.mask = cv.inRange(self.v_channel , self.lower_thresh , self.upper_thresh)
 
         #winName_3 = "Mask_Image"
         #cv.namedWindow(winName_3,cv.WINDOW_NORMAL)
@@ -198,7 +233,7 @@ class contour_process:
 
         #The mask contains some holes, so we can try to erode part of the mask
         self.kernel_erode = np.ones((3,3),np.uint8)
-        self.mask_erode = cv.erode(mask,kernel_erode,iterations = 1)
+        self.mask_erode = cv.erode(self.mask,self.kernel_erode,iterations = 1)
         
 
         #winName_4 = "Result of erosion"
@@ -219,7 +254,7 @@ class contour_process:
         #cv.waitKey(0)
         ##print("hist:",hist)
      
-        box_all , flag = find_slope(self.mask_erode,img,self.hist,self.v_channel,self.mask,self.mask_erode) #hist and v_channel are for debugging
+        box_all , flag = self.find_slope(self.mask_erode,img,self.hist,self.v_channel,self.mask,self.mask_erode) #hist and v_channel are for debugging
 
         if(flag == 1):
             return box_all , flag
@@ -234,11 +269,11 @@ class contour_process:
     #    return approx_cnt , flag #If flag = 0 then it indicates an error
 
 if __name__ == "__main__":
-    
-    cnt_detect = contour_process() 
+    cnt_detect = contour_process()
+    det_pose = pose_estimation()
     winName = "Live feed"
     cv.namedWindow(winName,cv.WINDOW_NORMAL)
-    #video = "/home/varghese/darknet/test_videos/output_18_sept.avi"
+    #video = "/home/varghese/data_12th_Sept/input.avi"
 
     #if(video):
     #    cap = cv.VideoCapture(video)
@@ -246,14 +281,18 @@ if __name__ == "__main__":
     #while(cap.isOpened()):
 
     for img_path in glob.glob("/home/varghese/challenge_2/brick_train/brick_train_v6/images/*.jpg"):
+        start_time = time.time()
+        cnt_detect.clear_all()
+        det_pose.clear_all()
+    
         frame = cv.imread(img_path)
-        #approx_cnt , flag = colour_analyse(frame)
         #ret , frame = cap.read()
         cv.imshow(winName,frame)
         cv.waitKey(0)
+
         ret = True
+
         if not ret:
-           print("done processing")
            cap.release()
            break
     
@@ -262,9 +301,11 @@ if __name__ == "__main__":
             box_all,flag = cnt_detect.colour_analyse(frame)
             
             if(flag == 1):
-                process_pose_1(ori_img,box_all)
+                det_pose.process_pose_1(ori_img,box_all)
 
-        
+        end_time = time.time()
+        print("Number of time in seconds required for entire pipeline:",float(end_time - start_time))
+        #inp = input("Waiting for input...")
 
     #img = cv.imread("/home/varghese/data_25th_sept/video/picture9_033.jpg")
     #ori_img = np.copy(img)
