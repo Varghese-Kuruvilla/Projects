@@ -1,6 +1,9 @@
 #Converting images into YUV colourspace
+#!/usr/bin/env python
 import sys
 sys.path.remove("/opt/ros/kinetic/lib/python2.7/dist-packages")
+import rospy
+from std_msgs.msg import String
 import cv2 as cv
 import numpy as np
 import glob
@@ -16,6 +19,7 @@ fx = 690.08
 fy = 686.77
 cx = 265.02
 cy = 243.98
+flag_callback = 0
 
 #For testing
 #read_text = pd.read_csv("/home/varghese/data_12th_Sept/2019-09-11-18-53-27/data_analyze.txt")
@@ -46,6 +50,7 @@ class contour_process:
        self.kernel_erode = 0
        self.cnt = 0
        self.box_all = []
+
        
     def validate_cnt(self,cnt):
         global fy
@@ -53,6 +58,8 @@ class contour_process:
         global read_count
         threshold = 20
         depth = 300
+
+        
         #depth = read_text.iloc[read_count,0]
         #depth = float(depth)
         #read_count = read_count + 1
@@ -74,6 +81,7 @@ class contour_process:
         
 
     def find_slope(self,seg,img,hist,v_channel,mask,mask_erode):
+        global flag_callback
         box_all = [] #List of np arrays which contains box coordinates
         #seg is the segmented image
         #img is the original image on which we can draw the contours
@@ -105,8 +113,10 @@ class contour_process:
 
         for i in range(0, len(hierarchy[0])):
             if(hierarchy[0][i][3] == 0):
-                #Validating the contours using area considerations   
+                #Validating the contours using area considerations
+                flag_callback = 1
                 flag_valid_cnt = self.validate_cnt(self.cnt[i])
+                flag_callback = 0 
                 if(flag_valid_cnt == 1):
                     rect = cv.minAreaRect(self.cnt[i])
                     #print("rect:",rect)
@@ -268,9 +278,26 @@ class contour_process:
     #    approx_cnt , flag = colour_analyse(img)
     #    return approx_cnt , flag #If flag = 0 then it indicates an error
 
+
+def callback(data):
+    print("Inside callback")
+    print("data:",data)
+    if(flag_callback == 1):
+        return float(data)
+
+def subscribe():
+    rospy.init_node('listener',anonymous=True)
+    depth = rospy.Subscriber('/lidar',mavros_msgs/Altitude,callback)
+    rospy.spin()
+    cnt_detect.depth = depth
+
 if __name__ == "__main__":
     cnt_detect = contour_process()
     det_pose = pose_estimation()
+    
+    #Subscribing to the lidar topic
+    depth = subscribe()
+
     winName = "Live feed"
     cv.namedWindow(winName,cv.WINDOW_NORMAL)
     #video = "/home/varghese/data_12th_Sept/input.avi"
