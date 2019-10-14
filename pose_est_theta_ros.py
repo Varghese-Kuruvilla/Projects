@@ -187,11 +187,13 @@ class pose_estimation:
                 self.plot_on_img(ori_img,self.tl,self.tr,self.br,self.bl)
         
         #Displaying corners on the image 
-        winName = "Visualise corners"
-        cv.namedWindow(winName,cv.WINDOW_NORMAL)
-        cv.imshow(winName,ori_img)
-        cv.waitKey(1)
+        #winName = "Visualise corners"
+        #cv.namedWindow(winName,cv.WINDOW_NORMAL)
+        #cv.imshow(winName,ori_img)
+        #cv.waitKey(1)
 
+        out_1 = cv.VideoWriter('seg_output.avi',cv.VideoWriter_fourcc('M','J','P','G'), 10, (640,480))
+        out_1.write(ori_img)
         print("theta_ls:",self.theta_ls)
         print("depth_ls:",self.depth_ls)
         print("transx_ls:",self.transx_ls)

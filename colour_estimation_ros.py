@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from statistics import mean
 from pose_est_theta import pose_estimation
 import time
+from track import process_track
 #import pandas as pd
 
 #ROS Dependencies
@@ -123,8 +124,9 @@ class contour_process:
             if(hierarchy[0][i][3] == 0):
                 #Validating the contours using area considerations
                 flag_callback = 1
-                flag_valid_cnt = self.validate_cnt(self.cnt[i])
-                flag_callback = 0 
+                #flag_valid_cnt = self.validate_cnt(self.cnt[i])
+                flag_callback = 0
+                flag_valid_cnt = 1
                 if(flag_valid_cnt == 1):
                     rect = cv.minAreaRect(self.cnt[i])
                     #print("rect:",rect)
@@ -304,36 +306,37 @@ def subscribe_image():
     
     #return img
 
-def callback_depth(data):
-    global flag_callback
-    #print("Inside callback")
-    #print("data:",data)
-    #print("flag_callback:",flag_callback)
-    if(flag_callback == 1):
-        flag_callback = 0
-        print("data_inside:",data)
-        return data
-
-def callback_image(data):
-    #Accessing data at around 30FPS
-    #print("Inside callback function")
-    #end_time = time.time()
-    #print("Time:",end_time - start_time)
-    #start_time = time.time()
-    bridge = CvBridge()
-    cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
-    return cv_image
-
-
-def subscribe_lidar():
-    rospy.init_node('listener',anonymous=True)
-    depth = rospy.Subscriber('/lidar',Float32,callback_depth)
-    rospy.spin()
-    print("depth:",depth)
-    cnt_detect.depth = depth
+#def callback_depth(data):
+#    global flag_callback
+#    #print("Inside callback")
+#    #print("data:",data)
+#    #print("flag_callback:",flag_callback)
+#    if(flag_callback == 1):
+#        flag_callback = 0
+#        print("data_inside:",data)
+#        return data
+#
+#def callback_image(data):
+#    #Accessing data at around 30FPS
+#    #print("Inside callback function")
+#    #end_time = time.time()
+#    #print("Time:",end_time - start_time)
+#    #start_time = time.time()
+#    bridge = CvBridge()
+#    cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
+#    return cv_image
+#
+#
+#def subscribe_lidar():
+#    rospy.init_node('listener',anonymous=True)
+#    depth = rospy.Subscriber('/lidar',Float32,callback_depth)
+#    rospy.spin()
+#    print("depth:",depth)
+#    cnt_detect.depth = depth
 
 if __name__ == "__main__":
     while(True):
+        start_time = time.time()
         cnt_detect = contour_process()
         det_pose = pose_estimation()
         
@@ -344,20 +347,25 @@ if __name__ == "__main__":
         #flag_callback = 0
         #print("Waiting for input")
         frame = subscribe_image()
-        winName = "Live feed"
-        cv.namedWindow(winName,cv.WINDOW_NORMAL)
-        cv.imshow(winName,frame)
-        cv.waitKey(1)
-
+        
+        #winName = "Live feed"
+        #cv.namedWindow(winName,cv.WINDOW_NORMAL)
+        #cv.imshow(winName,frame)
+        #cv.waitKey(1)
         ori_img = np.copy(frame)
+        ori_img_1 = np.copy(frame)
+        #Writing data
+        #out = cv.VideoWriter('live_feed.avi',cv.VideoWriter_fourcc('M','J','P','G'), 10, (640,480))
+        #out.write(frame)
+
         box_all,flag = cnt_detect.colour_analyse(frame)
-        print("flag:",flag)
+        process_track(box_all,ori_img_1)
+        #print("box_all:",box_all)
         if(flag == 1):
             det_pose.process_pose_1(ori_img,box_all)
-        #Code to debug
-
-
-    
+        end_time = time.time()
+        print("Total time taken for the pipeline:",end_time - start_time)
+ 
     #winName = "Live feed"
     #cv.namedWindow(winName,cv.WINDOW_NORMAL)
     #video = "/home/varghese/data_12th_Sept/input.avi"
