@@ -11,12 +11,13 @@ import matplotlib.pyplot as plt
 from statistics import mean
 from pose_est_theta import pose_estimation
 import time
-from track import process_track
+#from track import process_track
 #import pandas as pd
 
 #ROS Dependencies
 
 from std_msgs.msg import Float32
+from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -64,8 +65,9 @@ class contour_process:
         global fy
         global read_text
         global read_count
-        threshold = 100
+        #threshold = 100
         depth = subscribe_depth()
+        threshold = (fy * 20 * 100)/((depth.data) * (depth.data + 20))
         print("depth.data:",depth.data)
         print("Type depth.data:",type(depth.data))
         #inp = input("Waiting for input...")
@@ -334,8 +336,23 @@ def subscribe_image():
 #    print("depth:",depth)
 #    cnt_detect.depth = depth
 
+def subscribe_data():
+    theta_ls = rospy.wait_for_message('/chatter',String)
+    print("theta_ls:",theta_ls)
+
+
+def publish_data(theta_ls,depth_ls,transx_ls,transy_ls):
+    pub = rospy.Publisher('chatter',String,queue_size=10)
+    #rospy.init_node('talker',anonymous=True)
+    rate = rospy.Rate(10)
+    str_to_publish = str(depth_ls) + ":" + str(transx_ls) + ":" + str(transy_ls)
+    pub.publish(str_to_publish)
+    print("Finished publishing message...")
+    rate.sleep()
+    #subscribe_data()
+
 if __name__ == "__main__":
-    while(True):
+    while(not (rospy.is_shutdown())):
         start_time = time.time()
         cnt_detect = contour_process()
         det_pose = pose_estimation()
@@ -348,10 +365,10 @@ if __name__ == "__main__":
         #print("Waiting for input")
         frame = subscribe_image()
         
-        #winName = "Live feed"
-        #cv.namedWindow(winName,cv.WINDOW_NORMAL)
-        #cv.imshow(winName,frame)
-        #cv.waitKey(1)
+        winName = "Live feed"
+        cv.namedWindow(winName,cv.WINDOW_NORMAL)
+        cv.imshow(winName,frame)
+        cv.waitKey(1)
         ori_img = np.copy(frame)
         ori_img_1 = np.copy(frame)
         #Writing data
@@ -359,10 +376,17 @@ if __name__ == "__main__":
         #out.write(frame)
 
         box_all,flag = cnt_detect.colour_analyse(frame)
-        process_track(box_all,ori_img_1)
+        #process_track(box_all,ori_img_1)
         #print("box_all:",box_all)
         if(flag == 1):
-            det_pose.process_pose_1(ori_img,box_all)
+            theta_ls , depth_ls , transx_ls , transy_ls , flag_pose = det_pose.process_pose_1(ori_img,box_all)
+            print("theta_ls:",theta_ls)
+            print("depth_ls:",depth_ls)
+            print("transx_ls:",transx_ls)
+            print("transy_ls:",transy_ls)
+
+            #Publishing the above data on a ROStopic
+            publish_data(theta_ls,depth_ls,transx_ls,transy_ls)
         end_time = time.time()
         print("Total time taken for the pipeline:",end_time - start_time)
  
