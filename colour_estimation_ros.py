@@ -15,7 +15,6 @@ import time
 #import pandas as pd
 
 #ROS Dependencies
-
 from std_msgs.msg import Float32
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
@@ -27,7 +26,6 @@ fx = 690.08
 fy = 686.77
 cx = 265.02
 cy = 243.98
-flag_callback = 0
 
 
 #For testing
@@ -65,9 +63,9 @@ class contour_process:
         global fy
         global read_text
         global read_count
-        #threshold = 100
+        threshold = 100
         depth = subscribe_depth()
-        threshold = (fy * 20 * 100)/((depth.data) * (depth.data + 20))
+        #threshold = (fy * 20 * 100)/((depth.data) * (depth.data - 20))
         print("depth.data:",depth.data)
         print("Type depth.data:",type(depth.data))
         #inp = input("Waiting for input...")
@@ -84,6 +82,7 @@ class contour_process:
 
         print("perimeter_cnt:",perimeter_cnt)
         print("perimeter_depth:",perimeter_depth)
+        print("Threshold:",threshold)
         
         if(abs(perimeter_cnt - perimeter_depth)<=threshold):
             return 1 #Indicates that the contour should be considered for further processing
@@ -92,7 +91,6 @@ class contour_process:
         
 
     def find_slope(self,seg,img,hist,v_channel,mask,mask_erode):
-        global flag_callback
         box_all = [] #List of np arrays which contains box coordinates
         #seg is the segmented image
         #img is the original image on which we can draw the contours
@@ -125,10 +123,8 @@ class contour_process:
         for i in range(0, len(hierarchy[0])):
             if(hierarchy[0][i][3] == 0):
                 #Validating the contours using area considerations
-                flag_callback = 1
-                #flag_valid_cnt = self.validate_cnt(self.cnt[i])
-                flag_callback = 0
-                flag_valid_cnt = 1
+                flag_valid_cnt = self.validate_cnt(self.cnt[i])
+                #flag_valid_cnt = 1
                 if(flag_valid_cnt == 1):
                     rect = cv.minAreaRect(self.cnt[i])
                     #print("rect:",rect)
@@ -218,7 +214,6 @@ class contour_process:
 
         mean_v = np.mean(self.v_channel)
         #print("mean_v:",mean_v)
-        #inp = input("waiting for input...")
 
         mean = np.where(self.hist == np.amax(self.hist)) #Mean is considered as the maximum point in the histogram
         #print("mean:",mean)
@@ -236,12 +231,6 @@ class contour_process:
         #Applying otsu thresholding
         #ret , thresh = cv.threshold(v_channel , 0 , 255 , cv.THRESH_BINARY + cv.THRESH_OTSU)
         #print("Otsu threshold:",ret)
-        
-        #Apply 2 masks for the image
-        #Shows a peak at 150: so consider range of colours from 100 to 200 i.e mean - (30% of mean) to mean + (30% of mean)
-        #mask_1 = cv.inRange(v_channel,lower_thresh_1,upper_thresh_1)
-        #mask_2 = cv.inRange(v_channel,lower_thresh_2,upper_thresh_2)
-        #mask = mask_1 + mask_2
 
         self.mask = cv.inRange(self.v_channel , self.lower_thresh , self.upper_thresh)
 
@@ -253,7 +242,7 @@ class contour_process:
         #    cv.destroyAllWindows()
 
 
-        #The mask contains some holes, so we can try to erode part of the mask
+        #The mask contains some holes, try erosion
         self.kernel_erode = np.ones((3,3),np.uint8)
         self.mask_erode = cv.erode(self.mask,self.kernel_erode,iterations = 1)
         
@@ -336,20 +325,15 @@ def subscribe_image():
 #    print("depth:",depth)
 #    cnt_detect.depth = depth
 
-def subscribe_data():
-    theta_ls = rospy.wait_for_message('/chatter',String)
-    print("theta_ls:",theta_ls)
 
-
-def publish_data(theta_ls,depth_ls,transx_ls,transy_ls):
+def publish_data(box_pose):
     pub = rospy.Publisher('chatter',String,queue_size=10)
     #rospy.init_node('talker',anonymous=True)
     rate = rospy.Rate(10)
-    str_to_publish = str(depth_ls) + ":" + str(transx_ls) + ":" + str(transy_ls)
+    str_to_publish = str(box_pose)
     pub.publish(str_to_publish)
     print("Finished publishing message...")
     rate.sleep()
-    #subscribe_data()
 
 if __name__ == "__main__":
     while(not (rospy.is_shutdown())):
@@ -357,12 +341,7 @@ if __name__ == "__main__":
         cnt_detect = contour_process()
         det_pose = pose_estimation()
         
-        #Subscribing to the lidar topic
-        #flag_callback = 1
-        #depth = subscribe_lidar()
-        #print("Depth:",depth)
-        #flag_callback = 0
-        #print("Waiting for input")
+        #Subscribing to the image
         frame = subscribe_image()
         
         winName = "Live feed"
@@ -371,22 +350,17 @@ if __name__ == "__main__":
         cv.waitKey(1)
         ori_img = np.copy(frame)
         ori_img_1 = np.copy(frame)
-        #Writing data
-        #out = cv.VideoWriter('live_feed.avi',cv.VideoWriter_fourcc('M','J','P','G'), 10, (640,480))
-        #out.write(frame)
 
         box_all,flag = cnt_detect.colour_analyse(frame)
         #process_track(box_all,ori_img_1)
-        #print("box_all:",box_all)
         if(flag == 1):
-            theta_ls , depth_ls , transx_ls , transy_ls , flag_pose = det_pose.process_pose_1(ori_img,box_all)
-            print("theta_ls:",theta_ls)
-            print("depth_ls:",depth_ls)
-            print("transx_ls:",transx_ls)
-            print("transy_ls:",transy_ls)
+            #theta_ls , depth_ls , transx_ls , transy_ls , flag_pose = det_pose.process_pose_1(ori_img,box_all)
+            box_pose , flag_pose = det_pose.process_pose_1(ori_img,box_all)
 
-            #Publishing the above data on a ROStopic
-            publish_data(theta_ls,depth_ls,transx_ls,transy_ls)
+            print("box_pose:",box_pose)
+
+            #Publishing the above data on the ROStopic chatter
+            publish_data(box_pose)
         end_time = time.time()
         print("Total time taken for the pipeline:",end_time - start_time)
  

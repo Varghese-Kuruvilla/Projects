@@ -14,49 +14,6 @@ success_pose = 0
 # cv.namedWindow(winName, cv.WINDOW_NORMAL)
 
 
-
-# def isRotationMatrix(R) :
-#     Rt = np.transpose(R)
-#     shouldBeIdentity = np.dot(Rt, R)
-#     I = np.identity(3, dtype = R.dtype)
-#     n = np.linalg.norm(I - shouldBeIdentity)
-#     return n < 1e-6
-
-# def getangles(rvecs):
-    
-#     R=cv.Rodrigues(rvecs)[0]
-#     assert(isRotationMatrix(R))
-            
-#     sy = sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
-#     singular = sy < 1e-6
- 
-#     if  not singular:
-#         x = degrees(atan2(R[2,1] , R[2,2]))
-#         y = degrees(atan2(-R[2,0], sy))
-#         z = degrees(atan2(R[1,0], R[0,0]))
-#     else :
-#         x = degrees(atan2(-R[1,2], R[1,1]))
-#         y = degrees(atan2(-R[2,0], sy))
-#         z = 0
-#     return x,y,z
-
-# #Converting from quaternion to euler angles
-# def quaternion_to_euler(x, y, z, w):
-
-
-#     t0 = +2.0 * (w * x + y * z)
-#     t1 = +1.0 - 2.0 * (x * x + y * y)
-#     roll = degrees(atan2(t0, t1))
-#     t2 = +2.0 * (w * y - z * x)
-#     t2 = +1.0 if t2 > +1.0 else t2
-#     t2 = -1.0 if t2 < -1.0 else t2
-#     pitch = degrees(asin(t2))
-#     t3 = +2.0 * (w * z + x * y)
-#     t4 = +1.0 - 2.0 * (y * y + z * z)
-#     yaw = degrees(atan2(t3, t4))
-
-    #return yaw, pitch, roll
-
 #loading intrinsics
 #mtx = np.array([[700.4,   0. , 628.787], [  0. , 700.4, 372.022],[  0. ,   0. ,   1. ]])
 #dist = np.array([[-0.175725, 0.0290343, 0., 0., 1.]]) 
@@ -75,6 +32,7 @@ class pose_estimation:
         self.depth_ls = []
         self.transx_ls = []
         self.transy_ls = []
+        self.box_pose = []
 
     def clear_all(self):
 
@@ -181,9 +139,7 @@ class pose_estimation:
 
                 depth_est,trans_x,trans_y = self.process_depth(ori_img,self.tl,self.tr,self.br,self.bl)
 
-                self.depth_ls.append(depth_est)
-                self.transx_ls.append(trans_x)
-                self.transy_ls.append(trans_y)
+                self.box_pose.append([theta , depth_est , trans_x , trans_y])
                 self.plot_on_img(ori_img,self.tl,self.tr,self.br,self.bl)
         
         #Displaying corners on the image 
@@ -192,13 +148,7 @@ class pose_estimation:
         cv.imshow(winName,ori_img)
         cv.waitKey(1)
 
-        #out_1 = cv.VideoWriter('seg_output.avi',cv.VideoWriter_fourcc('M','J','P','G'), 10, (640,480))
-        #out_1.write(ori_img)
-        #print("theta_ls:",self.theta_ls)
-        #print("depth_ls:",self.depth_ls)
-        #print("transx_ls:",self.transx_ls)
-        #print("transy_ls:",self.transy_ls)
-        return self.theta_ls , self.depth_ls ,self.transx_ls,self.transy_ls,1 #Indicates that pose estimation is successful
+        return self.box_pose , 1
 
 #For debugging purposes - if the bounding boxes aren't accurate
 if __name__ == '__main__':
