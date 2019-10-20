@@ -10,52 +10,10 @@ import time
 
 #global parameters
 success_pose = 0
+#global_depth_est = 0
 # winName = "Pose estimation"
 # cv.namedWindow(winName, cv.WINDOW_NORMAL)
 
-
-
-# def isRotationMatrix(R) :
-#     Rt = np.transpose(R)
-#     shouldBeIdentity = np.dot(Rt, R)
-#     I = np.identity(3, dtype = R.dtype)
-#     n = np.linalg.norm(I - shouldBeIdentity)
-#     return n < 1e-6
-
-# def getangles(rvecs):
-    
-#     R=cv.Rodrigues(rvecs)[0]
-#     assert(isRotationMatrix(R))
-            
-#     sy = sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
-#     singular = sy < 1e-6
- 
-#     if  not singular:
-#         x = degrees(atan2(R[2,1] , R[2,2]))
-#         y = degrees(atan2(-R[2,0], sy))
-#         z = degrees(atan2(R[1,0], R[0,0]))
-#     else :
-#         x = degrees(atan2(-R[1,2], R[1,1]))
-#         y = degrees(atan2(-R[2,0], sy))
-#         z = 0
-#     return x,y,z
-
-# #Converting from quaternion to euler angles
-# def quaternion_to_euler(x, y, z, w):
-
-
-#     t0 = +2.0 * (w * x + y * z)
-#     t1 = +1.0 - 2.0 * (x * x + y * y)
-#     roll = degrees(atan2(t0, t1))
-#     t2 = +2.0 * (w * y - z * x)
-#     t2 = +1.0 if t2 > +1.0 else t2
-#     t2 = -1.0 if t2 < -1.0 else t2
-#     pitch = degrees(asin(t2))
-#     t3 = +2.0 * (w * z + x * y)
-#     t4 = +1.0 - 2.0 * (y * y + z * z)
-#     yaw = degrees(atan2(t3, t4))
-
-    #return yaw, pitch, roll
 
 #loading intrinsics
 #mtx = np.array([[700.4,   0. , 628.787], [  0. , 700.4, 372.022],[  0. ,   0. ,   1. ]])
@@ -75,6 +33,7 @@ class pose_estimation:
         self.depth_ls = []
         self.transx_ls = []
         self.transy_ls = []
+        self.box_pose = []
 
     def clear_all(self):
 
@@ -102,28 +61,40 @@ class pose_estimation:
         #Finding the slope between points
         avg_theta_long = 0
         avg_theta_short = 0
-        slope_1 = (tr[1]-tl[1])/(tr[0]-tl[0])
-        theta_1 = degrees(atan(slope_1))
+        if(tr[0] != tl[0]):
+            slope_1 = (tr[1]-tl[1])/(tr[0]-tl[0])
+            theta_1 = degrees(atan(slope_1))
+        else:
+            theta_1 = 90
         if(abs(theta_1) >=0 and abs(theta_1)<=90):
             #print("theta_1 condition satisfied")
             avg_theta_long = avg_theta_long + theta_1
         #print("theta_1:",theta_1)
-
-        slope_2 = (br[1]-tr[1])/(br[0]-tr[0])
-        theta_2 = degrees(atan(slope_2))
+        
+        if(br[0] != tr[0]):
+            slope_2 = (br[1]-tr[1])/(br[0]-tr[0])
+            theta_2 = degrees(atan(slope_2))
+        else:
+            theta_2 = 90
         if(abs(theta_2) >=0 and abs(theta_2)<=90):
             #print("theta_2 condition satisfied")
             avg_theta_short = avg_theta_short + theta_2
 
-        slope_3 = (bl[1] - br[1])/(bl[0] - br[0])
-        theta_3 = degrees(atan(slope_3))
+        if(bl[0] != br[0]):
+            slope_3 = (bl[1] - br[1])/(bl[0] - br[0])
+            theta_3 = degrees(atan(slope_3))
+        else:
+            theta_3 = 90
         #print("theta_3:",theta_3)
         if(abs(theta_3) >=0 and abs(theta_3)<=90):
             #print("theta_3 condition satisfied")
             avg_theta_long = avg_theta_long + theta_3
 
-        slope_4 = (tl[1] - bl[1])/(tl[0] - bl[0])
-        theta_4 = degrees(atan(slope_4))
+        if(tl[0] != bl[0]):
+            slope_4 = (tl[1] - bl[1])/(tl[0] - bl[0])
+            theta_4 = degrees(atan(slope_4))
+        else:
+            theta_4 = 90
         #print("theta_4:",theta_4)
         if(abs(theta_4) >=0 and abs(theta_4)<=90):
             #print("condition 4 theta satisfied")
@@ -138,10 +109,10 @@ class pose_estimation:
 
     def process_depth(self,ori_img,tl,tr,br,bl):
 
-        fx = 690.0869
-        fy = 686.7708
-        cx = 265.0279
-        cy = 243.9890
+        fx = 617.0869
+        fy = 617.7708
+        cx = 332.0279
+        cy = 240.9890
 
         worldlength = 30 #in cms
         pixellength_1 = sqrt((tl[0] - tr[0])**2 + (tl[1] - tr[1])**2)
@@ -167,7 +138,8 @@ class pose_estimation:
         cv.drawMarker(ori_img,(int(bl[0]),int(bl[1])), color=(0,255,0),markerType=cv.MARKER_DIAMOND,markerSize=3,thickness=3)
 
     def process_pose_1(self,ori_img,box_all):
-
+        global global_depth_est 
+        global_depth_est = 0
         #print("len(box_all):",len(box_all))
         for i in range(0,len(box_all)):
             if(box_all[i].shape == (4,2)):
@@ -180,24 +152,19 @@ class pose_estimation:
                 self.theta_ls.append(theta)
 
                 depth_est,trans_x,trans_y = self.process_depth(ori_img,self.tl,self.tr,self.br,self.bl)
-
-                self.depth_ls.append(depth_est)
-                self.transx_ls.append(trans_x)
-                self.transy_ls.append(trans_y)
+                #if(i == 0):
+                #    global_depth_est = depth_est
+                self.box_pose.append([theta , depth_est , trans_x , trans_y])
                 self.plot_on_img(ori_img,self.tl,self.tr,self.br,self.bl)
         
         #Displaying corners on the image 
         winName = "Visualise corners"
         cv.namedWindow(winName,cv.WINDOW_NORMAL)
         cv.imshow(winName,ori_img)
-        cv.waitKey(0)
-
-        print("theta_ls:",self.theta_ls)
-        print("depth_ls:",self.depth_ls)
-        print("transx_ls:",self.transx_ls)
-        print("transy_ls:",self.transy_ls)
+        cv.waitKey(1)
         
-        #return theta_ls , depth_ls ,transx_ls,transy_ls,1 #Indicates that pose estimation is successful
+        #return self.box_pose , global_depth_est, 1
+        return self.box_pose , 1
 
 #For debugging purposes - if the bounding boxes aren't accurate
 if __name__ == '__main__':

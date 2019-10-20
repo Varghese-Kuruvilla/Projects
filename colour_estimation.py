@@ -3,7 +3,7 @@
 import sys
 sys.path.remove("/opt/ros/kinetic/lib/python2.7/dist-packages")
 import rospy
-from std_msgs.msg import String
+#from std_msgs.msg import String
 import cv2 as cv
 import numpy as np
 import glob
@@ -11,19 +11,32 @@ import matplotlib.pyplot as plt
 from statistics import mean
 from pose_est_theta import pose_estimation
 import time
+import pickle
+#from track import process_track
 #import pandas as pd
+
+#ROS Dependencies
+from std_msgs.msg import Float32
+from std_msgs.msg import String
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
 
 #Global variables
 area_anomaly = [] #List for detection of area anomalies
-fx = 690.08
-fy = 686.77
-cx = 265.02
-cy = 243.98
-flag_callback = 0
+#These values should be ideally read from the rostopic
+fx = 617.08
+fy = 617.77
+cx = 332.02
+cy = 240.98
+
 
 #For testing
 #read_text = pd.read_csv("/home/varghese/data_12th_Sept/2019-09-11-18-53-27/data_analyze.txt")
 #read_count = 0
+#dict_debug = {} #First entry is lidar depth and second entry is the depth calculated from monocular camera
+#debug_lidar_depth = 0
+#debug_true_depth = 0
+
 class contour_process:
 
     def __init__(self):
@@ -54,26 +67,28 @@ class contour_process:
        
     def validate_cnt(self,cnt):
         global fy
-        global read_text
-        global read_count
-        threshold = 20
-        depth = 300
-
-        
-        #depth = read_text.iloc[read_count,0]
-        #depth = float(depth)
+        #global read_count
+        #global debug_lidar_depth
         #read_count = read_count + 1
-    
+        threshold = 60  #The threshold should be made adaptive
+        depth = subscribe_depth()
+        print("Lidar depth:",depth)
+        #if(read_count == 1):
+        #    debug_lidar_depth = depth.data - 20
+        #threshold = (fy * 20 * 100)/((depth.data) * (depth.data - 20)) 
         perimeter_cnt = cv.arcLength(cnt,True)
 
-        pixel_length = (fy * 30)/(depth)
-        pixel_breadth = (fy * 20)/(depth)
+        pixel_length = (fy * 30)/(depth.data)
+        pixel_breadth = (fy * 20)/(depth.data)
 
         perimeter_depth = 2 * (pixel_length + pixel_breadth)
 
-        print("perimeter_cnt:",perimeter_cnt)
-        print("perimeter_depth:",perimeter_depth)
-        
+        #pixel_length_1 = (fy * 30)/(depth.data -110)
+        #pixel_breadth_1 = (fy * 20)/(depth.data - 110)
+
+        #perimeter_depth_1 = 2 * (pixel_length_1 + pixel_breadth_1)
+
+
         if(abs(perimeter_cnt - perimeter_depth)<=threshold):
             return 1 #Indicates that the contour should be considered for further processing
         else:
@@ -81,7 +96,6 @@ class contour_process:
         
 
     def find_slope(self,seg,img,hist,v_channel,mask,mask_erode):
-        global flag_callback
         box_all = [] #List of np arrays which contains box coordinates
         #seg is the segmented image
         #img is the original image on which we can draw the contours
@@ -111,12 +125,11 @@ class contour_process:
         #winName_rect = "Rotated rectangle"
         #cv.namedWindow(winName_rect,cv.WINDOW_NORMAL)
 
+        global read_count
         for i in range(0, len(hierarchy[0])):
             if(hierarchy[0][i][3] == 0):
                 #Validating the contours using area considerations
-                flag_callback = 1
                 flag_valid_cnt = self.validate_cnt(self.cnt[i])
-                flag_callback = 0 
                 if(flag_valid_cnt == 1):
                     rect = cv.minAreaRect(self.cnt[i])
                     #print("rect:",rect)
@@ -127,6 +140,7 @@ class contour_process:
                 #cv.drawContours(img_rect,[box],0,(0,0,255),2)
                 #cv.imshow(winName_rect,img_rect)
                 #cv.waitKey(0)
+        read_count = 0
 
         if(len(self.box_all) >=1):
             return self.box_all , 1
@@ -206,7 +220,6 @@ class contour_process:
 
         mean_v = np.mean(self.v_channel)
         #print("mean_v:",mean_v)
-        #inp = input("waiting for input...")
 
         mean = np.where(self.hist == np.amax(self.hist)) #Mean is considered as the maximum point in the histogram
         #print("mean:",mean)
@@ -224,12 +237,6 @@ class contour_process:
         #Applying otsu thresholding
         #ret , thresh = cv.threshold(v_channel , 0 , 255 , cv.THRESH_BINARY + cv.THRESH_OTSU)
         #print("Otsu threshold:",ret)
-        
-        #Apply 2 masks for the image
-        #Shows a peak at 150: so consider range of colours from 100 to 200 i.e mean - (30% of mean) to mean + (30% of mean)
-        #mask_1 = cv.inRange(v_channel,lower_thresh_1,upper_thresh_1)
-        #mask_2 = cv.inRange(v_channel,lower_thresh_2,upper_thresh_2)
-        #mask = mask_1 + mask_2
 
         self.mask = cv.inRange(self.v_channel , self.lower_thresh , self.upper_thresh)
 
@@ -241,7 +248,7 @@ class contour_process:
         #    cv.destroyAllWindows()
 
 
-        #The mask contains some holes, so we can try to erode part of the mask
+        #The mask contains some holes, try erosion
         self.kernel_erode = np.ones((3,3),np.uint8)
         self.mask_erode = cv.erode(self.mask,self.kernel_erode,iterations = 1)
         
@@ -279,59 +286,130 @@ class contour_process:
     #    return approx_cnt , flag #If flag = 0 then it indicates an error
 
 
-def callback(data):
-    print("Inside callback")
-    print("data:",data)
-    if(flag_callback == 1):
-        return float(data)
+def subscribe_depth():
+    depth = rospy.wait_for_message('/lidar',Float32)
+    return depth
 
-def subscribe():
-    rospy.init_node('listener',anonymous=True)
-    depth = rospy.Subscriber('/lidar',mavros_msgs/Altitude,callback)
-    rospy.spin()
-    cnt_detect.depth = depth
+
+
+def subscribe_image():
+    rospy.init_node('listener_1',anonymous=True)
+    #img = rospy.Subscriber('/camera/color/image_raw',Image,callback_image)
+    #rospy.spin()
+    image_msg = rospy.wait_for_message('/camera/color/image_raw',Image)
+    bridge = CvBridge()
+    cv_image = bridge.imgmsg_to_cv2(image_msg,"bgr8")
+    return cv_image
+    
+    #return img
+
+#def callback_depth(data):
+#    global flag_callback
+#    #print("Inside callback")
+#    #print("data:",data)
+#    #print("flag_callback:",flag_callback)
+#    if(flag_callback == 1):
+#        flag_callback = 0
+#        print("data_inside:",data)
+#        return data
+#
+#def callback_image(data):
+#    #Accessing data at around 30FPS
+#    #print("Inside callback function")
+#    #end_time = time.time()
+#    #print("Time:",end_time - start_time)
+#    #start_time = time.time()
+#    bridge = CvBridge()
+#    cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
+#    return cv_image
+#
+#
+#def subscribe_lidar():
+#    rospy.init_node('listener',anonymous=True)
+#    depth = rospy.Subscriber('/lidar',Float32,callback_depth)
+#    rospy.spin()
+#    print("depth:",depth)
+#    cnt_detect.depth = depth
+
+
+def publish_data(box_pose):
+    pub = rospy.Publisher('chatter',String,queue_size=10)
+    #rospy.init_node('talker',anonymous=True)
+    rate = rospy.Rate(10)
+    str_to_publish = str(box_pose)
+    pub.publish(str_to_publish)
+    rate.sleep()
 
 if __name__ == "__main__":
-    cnt_detect = contour_process()
-    det_pose = pose_estimation()
-    
-    #Subscribing to the lidar topic
-    depth = subscribe()
+    while(not (rospy.is_shutdown())):
+        start_time = time.time()
+        cnt_detect = contour_process()
+        det_pose = pose_estimation()
+        
+        #Subscribing to the image
+        frame = subscribe_image()
+        
+        winName = "Live feed"
+        cv.namedWindow(winName,cv.WINDOW_NORMAL)
+        cv.imshow(winName,frame)
+        cv.waitKey(1)
+        ori_img = np.copy(frame)
+        ori_img_1 = np.copy(frame)
 
-    winName = "Live feed"
-    cv.namedWindow(winName,cv.WINDOW_NORMAL)
+        box_all,flag = cnt_detect.colour_analyse(frame)
+        #process_track(box_all,ori_img_1)
+        if(flag == 1):
+            #theta_ls , depth_ls , transx_ls , transy_ls , flag_pose = det_pose.process_pose_1(ori_img,box_all)
+            box_pose,flag_pose = det_pose.process_pose_1(ori_img,box_all)
+            #box_pose ,depth_est,flag_pose = det_pose.process_pose_1(ori_img,box_all)
+            #if(depth_est !=0):
+            #    print("inside depth_est:",depth_est)
+            #    debug_true_depth = depth_est
+            #    dict_debug[debug_lidar_depth] = debug_true_depth
+            #Publishing the above data on the ROStopic chatter
+            publish_data(box_pose)
+        end_time = time.time()
+        print("Total time taken for the pipeline:",end_time - start_time)
+        #print("dict_debug:",dict_debug)
+        #if(len(dict_debug) > 100):
+        #    f = open("store_dict.pkl","wb")
+        #    pickle.dump(dict_debug,f)
+        #    f.close()
+        #    print("Done writing data!!!")
+    #winName = "Live feed"
+    #cv.namedWindow(winName,cv.WINDOW_NORMAL)
     #video = "/home/varghese/data_12th_Sept/input.avi"
 
     #if(video):
     #    cap = cv.VideoCapture(video)
     
     #while(cap.isOpened()):
-
-    for img_path in glob.glob("/home/varghese/challenge_2/brick_train/brick_train_v6/images/*.jpg"):
-        start_time = time.time()
-        cnt_detect.clear_all()
-        det_pose.clear_all()
     
-        frame = cv.imread(img_path)
-        #ret , frame = cap.read()
-        cv.imshow(winName,frame)
-        cv.waitKey(0)
+    #for img_path in glob.glob("/home/varghese/challenge_2/brick_train/brick_train_v6/images/*.jpg"):
+    #    start_time = time.time()
+    #    cnt_detect.clear_all()
+    #    det_pose.clear_all()
+    #
+    #    frame = cv.imread(img_path)
+    #    #ret , frame = cap.read()
+    #    cv.imshow(winName,frame)
+    #    cv.waitKey(0)
 
-        ret = True
+    #    ret = True
 
-        if not ret:
-           cap.release()
-           break
-    
-        else:
-            ori_img = np.copy(frame)
-            box_all,flag = cnt_detect.colour_analyse(frame)
-            
-            if(flag == 1):
-                det_pose.process_pose_1(ori_img,box_all)
+    #    if not ret:
+    #       cap.release()
+    #       break
+    #
+    #    else:
+    #        ori_img = np.copy(frame)
+    #        box_all,flag = cnt_detect.colour_analyse(frame)
+    #        
 
-        end_time = time.time()
-        print("Number of time in seconds required for entire pipeline:",float(end_time - start_time))
+    #        if(flag == 1):
+    #            det_pose.process_pose_1(ori_img,box_all)
+    #    end_time = time.time()
+    #    print("Number of time in seconds required for entire pipeline:",float(end_time - start_time))
         #inp = input("Waiting for input...")
 
     #img = cv.imread("/home/varghese/data_25th_sept/video/picture9_033.jpg")
