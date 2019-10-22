@@ -24,6 +24,8 @@ from cv_bridge import CvBridge, CvBridgeError
 #Global variables
 area_anomaly = [] #List for detection of area anomalies
 #These values should be ideally read from the rostopic
+#fx = 530
+#fy = 530
 fx = 617.08
 fy = 617.77
 cx = 332.02
@@ -70,24 +72,32 @@ class contour_process:
         #global read_count
         #global debug_lidar_depth
         #read_count = read_count + 1
-        threshold = 60  #The threshold should be made adaptive
+        threshold = 100  #The threshold should be made adaptive
         depth = subscribe_depth()
         print("Lidar depth:",depth)
+        #depth.data = depth.data - 115  #To compensate for the error
+        print("depth.data:",depth.data)
         #if(read_count == 1):
         #    debug_lidar_depth = depth.data - 20
-        #threshold = (fy * 20 * 100)/((depth.data) * (depth.data - 20)) 
         perimeter_cnt = cv.arcLength(cnt,True)
-
+        print("perimeter_cnt:",perimeter_cnt)
         pixel_length = (fy * 30)/(depth.data)
         pixel_breadth = (fy * 20)/(depth.data)
 
         perimeter_depth = 2 * (pixel_length + pixel_breadth)
+        print("perimeter_depth:",perimeter_depth)
 
-        #pixel_length_1 = (fy * 30)/(depth.data -110)
-        #pixel_breadth_1 = (fy * 20)/(depth.data - 110)
-
-        #perimeter_depth_1 = 2 * (pixel_length_1 + pixel_breadth_1)
-
+#        pixel_length_1 = (fy * 30)/(depth.data -110)
+#        pixel_breadth_1 = (fy * 20)/(depth.data - 110)
+#
+#        perimeter_depth_1 = 2 * (pixel_length_1 + pixel_breadth_1)
+#        print("perimeter_depth_1:",perimeter_depth_1)
+#
+#        if(perimeter_cnt < perimeter_depth_1 and perimeter_cnt > perimeter_depth):
+#            print("success!!")
+#        else:
+#            print("failure")
+#            inp = input("waiting for input...")
 
         if(abs(perimeter_cnt - perimeter_depth)<=threshold):
             return 1 #Indicates that the contour should be considered for further processing

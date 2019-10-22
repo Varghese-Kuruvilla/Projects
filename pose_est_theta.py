@@ -7,6 +7,7 @@ import glob
 from matplotlib import pyplot as plt
 from math import *
 import time  
+from scipy.spatial import distance as dist
 
 #global parameters
 success_pose = 0
@@ -107,15 +108,73 @@ class pose_estimation:
         
         return [avg_theta_long,avg_theta_short]
 
+    
+    def det_longer(self,tl,tr,br,bl):
+        pts = np.array([tl,tr,br,bl])
+        x_sorted = pts[np.argsort(pts[:,0]),:]
+    
+        #Grabbing the leftmost and rightmost points from the sorted coordinate points
+        leftmost = x_sorted[:2,:]
+        rightmost = x_sorted[2:,:]
+
+        
+        leftmost = leftmost[np.argsort(leftmost[:,1]),:]
+        rightmost = rightmost[np.argsort(rightmost[:,1]),:]
+        (top_left , bottom_left) = leftmost
+        (top_right , bottom_right) = rightmost
+        
+        return top_left , top_right, bottom_right , bottom_left
+
+        #print("tl,tr,br,bl:",top_left , top_right, bottom_right,bottom_left)
+    #    if(tl[0] < tr[0] and tl[0] < br[0] and tl[0] < bl[0]):
+    #        top_left = tl
+    #    elif(tr[0] < tl[0] and tr[0] < br[0] and tr[0] < bl[0]):
+    #        top_left = tr
+    #    elif(br[0] < tl[0] and br[0] < tr[0] and br[0] < bl[0]):
+    #        top_left = br
+    #    else:
+    #        top_left = bl
+
+    #    #Now we have fixed top_left we can find the longest distance from this point
+
+    #    length_1 = sqrt((top_left[0] - tl[0])**2 + (top_left[1] - tl[1])**2)
+    #    length_2 = sqrt((top_left[0] - tr[0])**2 + (top_left[1] - tr[1])**2)
+    #    length_3 = sqrt((top_left[0] - bl[0])**2 + (top_left[1] - bl[1])**2)
+    #    length_4 = sqrt((top_left[0] - br[0])**2 + (top_left[1] - br[1])**2)
+
+    #    #Sorting these values
+    #    top_left = tl
+    #    if(length_1 > length_2 and length_1 > length_3):
+    #        bottom_right = tr
+    #
+    #    else
+    #        bottom_left = tr
+
+
+
+        
+
     def process_depth(self,ori_img,tl,tr,br,bl):
+
+        tl , tr, br , bl = self.det_longer(tl,tr,br,bl) #Function to find the points in the correct order
+        self.tl = tl
+        self.tr = tr
+        self.br = br
+        self.bl = bl
 
         fx = 617.0869
         fy = 617.7708
+        #fx = 530
+        #fy = 530
         cx = 332.0279
         cy = 240.9890
 
         worldlength = 30 #in cms
         pixellength_1 = sqrt((tl[0] - tr[0])**2 + (tl[1] - tr[1])**2)
+        print("tl[0]:",tl[0])
+        print("tl[1]:",tl[1])
+        print("tr[0]:",tr[0])
+        print("tr[1]:",tr[1])
         pixellength_2 = sqrt((bl[0] - br[0])**2 + (bl[1] - br[1])**2)
         #print("pixellength_1:",pixellength_1)
         #print("pixellength_2:",pixellength_2)
