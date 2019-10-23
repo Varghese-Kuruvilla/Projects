@@ -72,11 +72,10 @@ class contour_process:
         #global read_count
         #global debug_lidar_depth
         #read_count = read_count + 1
-        threshold = 100  #The threshold should be made adaptive
+        threshold = 50  #The threshold should be made adaptive
         depth = subscribe_depth()
-        print("Lidar depth:",depth)
-        #depth.data = depth.data - 115  #To compensate for the error
-        print("depth.data:",depth.data)
+        depth.data = depth.data - 100  #To compensate for the error
+        print("depth inside colour estimation:",depth.data)
         #if(read_count == 1):
         #    debug_lidar_depth = depth.data - 20
         perimeter_cnt = cv.arcLength(cnt,True)
@@ -90,14 +89,6 @@ class contour_process:
 #        pixel_length_1 = (fy * 30)/(depth.data -110)
 #        pixel_breadth_1 = (fy * 20)/(depth.data - 110)
 #
-#        perimeter_depth_1 = 2 * (pixel_length_1 + pixel_breadth_1)
-#        print("perimeter_depth_1:",perimeter_depth_1)
-#
-#        if(perimeter_cnt < perimeter_depth_1 and perimeter_cnt > perimeter_depth):
-#            print("success!!")
-#        else:
-#            print("failure")
-#            inp = input("waiting for input...")
 
         if(abs(perimeter_cnt - perimeter_depth)<=threshold):
             return 1 #Indicates that the contour should be considered for further processing
