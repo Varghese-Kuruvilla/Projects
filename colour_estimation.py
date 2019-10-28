@@ -9,10 +9,8 @@ import numpy as np
 import glob
 import matplotlib.pyplot as plt
 from statistics import mean
-from pose_est_theta import pose_estimation
 import time
 import pickle
-#from track import process_track
 #import pandas as pd
 
 #ROS Dependencies
@@ -20,6 +18,11 @@ from std_msgs.msg import Float32
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+
+#Importing functions from other modules
+from pose_est_theta import pose_estimation
+from track_own import track_id
+
 
 #Global variables
 area_anomaly = [] #List for detection of area anomalies
@@ -39,6 +42,13 @@ cy = 240.98
 #debug_lidar_depth = 0
 #debug_true_depth = 0
 
+#Initializing video writer
+out = cv.VideoWriter(
+        "output.avi", cv.VideoWriter_fourcc(*"MJPG"), 10.0,
+        (640, 480))
+
+
+track = track_id()  
 class contour_process:
 
     def __init__(self):
@@ -102,9 +112,9 @@ class contour_process:
         #img is the original image on which we can draw the contours
                                   #hist is only for debugging purposes
         # draw_cnt = segs
-        img_approx = np.copy(img)
-        img_rect = np.copy(img)
-        img_cnt = np.copy(img)
+        #img_approx = np.copy(img)
+        #img_rect = np.copy(img)
+        #img_cnt = np.copy(img)
 
 
         #Finding out the contours
@@ -115,7 +125,7 @@ class contour_process:
 
 
         #Drawing contours on the image    
-        cv.drawContours(img_cnt , self.cnt , -1 , (0,255,0) , 3)
+        #cv.drawContours(img_cnt , self.cnt , -1 , (0,255,0) , 3)
         #winName_cnt = "Drawing contours"
         #cv.namedWindow(winName_cnt,cv.WINDOW_NORMAL)
         #cv.imshow(winName_cnt,img_cnt)
@@ -336,7 +346,7 @@ def subscribe_image():
 def publish_data(box_pose):
     pub = rospy.Publisher('chatter',String,queue_size=10)
     #rospy.init_node('talker',anonymous=True)
-    rate = rospy.Rate(10)
+    rate = rospy.Rate(100)
     str_to_publish = str(box_pose)
     pub.publish(str_to_publish)
     rate.sleep()
@@ -346,7 +356,6 @@ if __name__ == "__main__":
         start_time = time.time()
         cnt_detect = contour_process()
         det_pose = pose_estimation()
-        
         #Subscribing to the image
         frame = subscribe_image()
         
@@ -356,21 +365,22 @@ if __name__ == "__main__":
         cv.waitKey(1)
         ori_img = np.copy(frame)
         ori_img_1 = np.copy(frame)
-
-        box_all,flag = cnt_detect.colour_analyse(frame)
+        
+        box_all,flag = cnt_detect.colour_analyse(frame)        
         #process_track(box_all,ori_img_1)
         if(flag == 1):
             #theta_ls , depth_ls , transx_ls , transy_ls , flag_pose = det_pose.process_pose_1(ori_img,box_all)
-            box_pose,flag_pose = det_pose.process_pose_1(ori_img,box_all)
-            #box_pose ,depth_est,flag_pose = det_pose.process_pose_1(ori_img,box_all)
-            #if(depth_est !=0):
-            #    print("inside depth_est:",depth_est)
-            #    debug_true_depth = depth_est
-            #    dict_debug[debug_lidar_depth] = debug_true_depth
+            vis_img ,box_pose,tl_ls,br_ls,flag_pose = det_pose.process_pose_1(ori_img,box_all)
             #Publishing the above data on the ROStopic chatter
+            out.write(vis_img)
             publish_data(box_pose)
+
+            #Tracking
+            track.process_track(ori_img_1,tl_ls,br_ls)
         end_time = time.time()
-        print("Total time taken for the pipeline:",end_time - start_time)
+        print("Time taken for entire pipeline:",end_time - start_time)
+        out.release()
+
         #print("dict_debug:",dict_debug)
         #if(len(dict_debug) > 100):
         #    f = open("store_dict.pkl","wb")

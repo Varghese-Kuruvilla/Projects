@@ -23,7 +23,8 @@ success_pose = 0
 #mtx = np.array([[700.4,   0. , 628.787], [  0. , 700.4, 372.022],[  0. ,   0. ,   1. ]])
 #dist = np.array([[-0.175725, 0.0290343, 0., 0., 1.]]) 
 #mtx = np.array([[690.08699358 ,  0.,         265.02791994],[  0.,         686.77087112, 243.98903059],[  0.,           0. ,          1.        ]]) #For logitech c615
-#dist = np.array([[-0.02285312, -0.14753576 , 0.00196857, -0.01649874 , 0.31742216]]) 
+#dist = np.array([[-0.02285312, -0.14753576 , 0.00196857, -0.01649874 , 0.31742216]])
+
 
 class pose_estimation:
 
@@ -176,6 +177,8 @@ class pose_estimation:
     def process_pose_1(self,ori_img,box_all):
         global global_depth_est 
         global_depth_est = 0
+        tl_ls = []
+        br_ls = []
         #print("len(box_all):",len(box_all))
         for i in range(0,len(box_all)):
             if(box_all[i].shape == (4,2)):
@@ -184,12 +187,12 @@ class pose_estimation:
                 self.br = box_all[i][2]
                 self.bl = box_all[i][3]
 
+                tl_ls.append(self.tl)
+                br_ls.append(self.br)
                 theta = self.process_theta(ori_img,self.tl,self.tr,self.br,self.bl) #Returns the theta values of the longer edge and the shorter edge in that order
                 self.theta_ls.append(theta)
 
                 depth_est,trans_x,trans_y = self.process_depth(ori_img,self.tl,self.tr,self.br,self.bl)
-                #if(i == 0):
-                #    global_depth_est = depth_est
                 self.box_pose.append([theta , depth_est , trans_x , trans_y])
                 self.plot_on_img(ori_img,self.tl,self.tr,self.br,self.bl)
         
@@ -200,7 +203,7 @@ class pose_estimation:
         cv.waitKey(1)
         
         #return self.box_pose , global_depth_est, 1
-        return self.box_pose , 1
+        return ori_img,self.box_pose,tl_ls,br_ls,1
 
 
 def subs_depth():
