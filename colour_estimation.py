@@ -351,6 +351,14 @@ def publish_data(box_pose):
     pub.publish(str_to_publish)
     rate.sleep()
 
+def draw_ids(img,association_id):
+    winName = "Tracking"
+    cv.namedWindow(winName,cv.WINDOW_NORMAL)
+    for (key,value) in (association_id.items()):
+        img = cv.putText(img,str(key),(value[0],value[1]),cv.FONT_HERSHEY_SIMPLEX,1.0,(255,255,255),2)
+    cv.imshow(winName,img)
+    cv.waitKey(1)
+
 if __name__ == "__main__":
     while(not (rospy.is_shutdown())):
         start_time = time.time()
@@ -376,7 +384,8 @@ if __name__ == "__main__":
             publish_data(box_pose)
 
             #Tracking
-            track.process_track(ori_img_1,tl_ls,br_ls)
+            association_id = track.process_track(tl_ls,br_ls)
+            draw_ids(ori_img_1,association_id)
         end_time = time.time()
         print("Time taken for entire pipeline:",end_time - start_time)
         out.release()

@@ -46,32 +46,37 @@ class track_id:
         
 
 
-    def match_ids(self): 
+    def match_ids(self):
+        cost = np.zeros((3,3))
         for i in range(0,len(self.centroids)):
             match = self.centroids[i]
             print("match:",match)
             for (j,(key,value)) in enumerate(self.association_id.items()):
-                print("j:",j)
-                print("Key:",key)
-                print("value:",value)
-                if(j == 0):
-                    min_dist = self.dist(value,match)
-                    print("min_dist:",min_dist)
-                    min_key = key
-                else:
-                    print("value:",value)
-                    dist = self.dist(value,match)
-                    print("dist:",dist)
-                    if(dist < min_dist):
-                        min_dist = dist
-                        min_key = key
+                temp_dist = self.dist(value,match)
+                cost[j][i] = temp_dist   
+               # print("j:",j)
+               # print("Key:",key)
+               # print("value:",value)
+               # if(j == 0):
+               #     min_dist = self.dist(value,match)
+               #     print("min_dist:",min_dist)
+               #     min_key = key
+               # else:
+               #     print("value:",value)
+               #     dist = self.dist(value,match)
+               #     print("dist:",dist)
+               #     if(dist < min_dist):
+               #         min_dist = dist
+               #         min_key = key
             
-            if(len(self.association_id)!=0):
-                print("Inside if condition")
-                print("min_key:",min_key)
-                print("Match:",match)
-                self.association_id[min_key] = match
-            
+            #if(len(self.association_id)!=0):
+            #    print("Inside if condition")
+            #    print("min_key:",min_key)
+            #    print("Match:",match)
+            #    self.association_id[min_key] = match
+       
+            print("cost:",cost)
+         
                 
          
     def dist(self,value,match):
@@ -94,11 +99,12 @@ class track_id:
            # print("br_ls[i][0]:",br_ls[i][0])
                     
 
-    def process_track(self,img,tl_ls,br_ls):
+    def process_track(self,tl_ls,br_ls):
         self.centroids = []
         print("tl_ls:",tl_ls)
         print("br_ls:",br_ls)
         self.compute_centroids(tl_ls,br_ls)
+        return self.association_id
 
 
 
