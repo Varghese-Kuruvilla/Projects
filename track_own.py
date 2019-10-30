@@ -1,6 +1,7 @@
 #Script to implement tracking. Proposed method is to associate ids with each detected brick
 import numpy as np
 from math import sqrt
+from sklearn.utils.linear_assignment_ import linear_assignment
 class track_id:
     def __init__(self):
         self.association_id = {} #Dictionary to store centroids with the corresponding ids. Key corresponds to the frame id and value corresponds to the (x,y) coordinates of the centroids
@@ -47,37 +48,28 @@ class track_id:
 
 
     def match_ids(self):
-        cost = np.zeros((3,3))
+        #cost = np.zeros((3,3))
+        cost = np.zeros((len(self.centroids),len(self.association_id)))
+        key_mat = np.zeros(len(self.association_id))
         for i in range(0,len(self.centroids)):
             match = self.centroids[i]
             print("match:",match)
             for (j,(key,value)) in enumerate(self.association_id.items()):
+                if(i == 0):
+                    key_mat[j] = key
                 temp_dist = self.dist(value,match)
-                cost[j][i] = temp_dist   
-               # print("j:",j)
-               # print("Key:",key)
-               # print("value:",value)
-               # if(j == 0):
-               #     min_dist = self.dist(value,match)
-               #     print("min_dist:",min_dist)
-               #     min_key = key
-               # else:
-               #     print("value:",value)
-               #     dist = self.dist(value,match)
-               #     print("dist:",dist)
-               #     if(dist < min_dist):
-               #         min_dist = dist
-               #         min_key = key
-            
-            #if(len(self.association_id)!=0):
-            #    print("Inside if condition")
-            #    print("min_key:",min_key)
-            #    print("Match:",match)
-            #    self.association_id[min_key] = match
+                print("temp_dist:",temp_dist)
+                cost[i][j] = temp_dist
        
-            print("cost:",cost)
-         
-                
+        print("cost:",cost)
+        res = linear_assignment(cost)
+        print("res:",res)
+        for i in range(0,len(res)):
+            self.association_id[key_mat[i]]=self.centroids[i]
+            print("key_mat[i]:",key_mat[i])
+            #print("self.association_id[key_mat[i]]:",self.association_id[key_mat[i]])
+            print("self.centroids[i]:",self.centroids[i])
+               
          
     def dist(self,value,match):
         #Calculate the euclidean distance between the points value and match
