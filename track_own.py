@@ -2,6 +2,7 @@
 import numpy as np
 from math import sqrt
 from sklearn.utils.linear_assignment_ import linear_assignment
+
 class track_id:
     def __init__(self):
         self.association_id = {} #Dictionary to store centroids with the corresponding ids. Key corresponds to the frame id and value corresponds to the (x,y) coordinates of the centroids
@@ -81,7 +82,7 @@ class track_id:
         for i in range(0,len(tl_ls)):
             cent_x = (tl_ls[i][0] + br_ls[i][0]) // 2
             cent_y = (tl_ls[i][1] + br_ls[i][1]) // 2
-            temp_centroid = np.array([cent_x,cent_y])
+            temp_centroid = np.array([cent_x,cent_y,tl_ls[i][0],tl_ls[i][1],br_ls[i][0],br_ls[i][1]])
             self.centroids.append(temp_centroid)
             print("self.centroids:",self.centroids)
 
