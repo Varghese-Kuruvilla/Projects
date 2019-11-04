@@ -9,6 +9,11 @@ class tracker_kf:
         self.x_state = [] #state which contains [cx,cy,w,h,vx,vy,vw,vh]
         self.dt = 1
 
+        self.boxes = []
+        self.id = 0 #To store the tracker id
+        self.hits = 0 #BB coordinates
+        self.no_losses = 0 #Number of unmatched tracks
+
         #Process matrix for constant velocity model
         self.F = np.array([[1,0,0,0,self.dt,0,0,0],
                            [0,1,0,0,0,self.dt,0,0],
@@ -82,6 +87,13 @@ class tracker_kf:
         self.P = self.P - dot(k,self.H).dot(self.P)
         self.x_state = x.astype(int)
         return self.x_state
+
+    def predict_only(self):
+        x = self.x_state
+        #Predict state
+        x = dot(self.F,x)
+        self.P = dot(self.F,self.P).dot(self.F.T) + self.Q
+        self.x_state = x.astype(int)
 
 
     def process_kalman(self,association_id):

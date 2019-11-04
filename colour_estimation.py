@@ -49,7 +49,6 @@ out = cv.VideoWriter(
         (640, 480))
 
 
-track = track_id()  
 class contour_process:
 
     def __init__(self):
@@ -361,9 +360,9 @@ def draw_ids(img,association_id):
     cv.waitKey(1)
 
 if __name__ == "__main__":
-
-    track_kf = tracker_kf()
-    print("dir(track_kf):",dir(track_kf))
+    
+    track = track_id()  
+    #track_kf = tracker_kf()
     while(not (rospy.is_shutdown())):
         start_time = time.time()
         cnt_detect = contour_process()
@@ -388,11 +387,9 @@ if __name__ == "__main__":
             publish_data(box_pose)
 
             #Tracking
-            association_id = track.process_track(tl_ls,br_ls)
-            print("Association_id:",association_id)
-            draw_ids(ori_img_1,association_id)
+            track.process_track(tl_ls,br_ls)
             #Implementing kalman filter for tracking
-            track_kf.process_kalman(association_id)
+            #track_kf.process_kalman(association_id)
         end_time = time.time()
         print("Time taken for entire pipeline:",end_time - start_time)
         out.release()
