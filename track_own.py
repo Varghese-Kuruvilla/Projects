@@ -4,6 +4,7 @@ from math import sqrt
 from sklearn.utils.linear_assignment_ import linear_assignment
 from kalman_filter import tracker_kf
 from collections import deque
+import cv2 as cv
 
 class track_id:
     def __init__(self):
@@ -63,16 +64,19 @@ class track_id:
 
 
         matched_idx = linear_assignment(cost_mat)
-
+        
+        self.unmatched_trackers = []
         for (t,trk) in enumerate(self.trackers):
             if(t not in matched_idx[:,0]):
                 self.unmatched_trackers.append(t)
 
+        self.unmatched_detections = []
         for (d,det) in enumerate(self.detections):
             print("d,det:",d,det)
             if(d not in matched_idx[:,1]):
-                print("Inside unmatched detections")
                 self.unmatched_detections.append(d)
+
+        self.matches = []
 
         for m in matched_idx:
             self.matches.append(m.reshape(1,2))
@@ -83,26 +87,28 @@ class track_id:
             self.matches = np.concatenate(self.matches,axis=0)
 
         #return self.matches , self.unmatched_detections, self.unmatched_trackers
-        print("Matched_idx:",matched_idx)
-        print("self.matches:",self.matches)
-        print("self.unmatched_detections",self.unmatched_detections)
-        print("self.unmatched_trackers",self.unmatched_trackers)
-        #self.unmatched_detections = np.array(self.unmatched_detections)
-        #self.unmatched_trackers = np.array(self.unmatched_trackers)
+        #print("Matched_idx:",matched_idx)
+        #print("self.matches:",self.matches)
+        #print("self.unmatched_detections",self.unmatched_detections)
+        #print("self.unmatched_trackers",self.unmatched_trackers)
 
                
          
     def dist(self,track_centre,detections_centre):
-        print("track_centre:",track_centre)
-        print("detections_centre:",detections_centre)
+        #print("track_centre:",track_centre)
+        #print("detections_centre:",detections_centre)
         #Calculate the euclidean distance between the points value and match
         dist = sqrt((track_centre[0]-detections_centre[0])**2 + (track_centre[1] - detections_centre[1])**2)
         return dist
 
-    def pipeline(self,tl_ls,br_ls):
+    def pipeline(self,img,tl_ls,br_ls):
         #Clear the list of detections
         self.detections = []
         x_box = []
+
+        if(len(self.trackers)>0):
+            for trk in self.trackers:
+                x_box.append(trk.boxes)
         #Computing centroids
         for i in range(0,len(tl_ls)):
             cent_x = (tl_ls[i][0] + br_ls[i][0]) // 2
@@ -112,7 +118,7 @@ class track_id:
 
             temp_centroid = np.array([cent_x,cent_y,width,height])
             self.detections.append(temp_centroid)
-            print("self.detections:",self.detections)
+            #print("self.detections:",self.detections)
 
         self.update()
 
@@ -160,19 +166,25 @@ class track_id:
             if((trk.hits >= 1) and (trk.no_losses <= 4)):
                 good_tracker_list.append(trk)
                 box_draw = trk.boxes
+                self.draw_ids(img,box_draw,trk.id)
                 print("box_draw:",box_draw)
+                print("trk.id:",trk.id)
 
 
             
-           # print("tl_ls[i][0]:",tl_ls[i][0])
-           # print("br_ls[i][0]:",br_ls[i][0])
                     
 
-    def process_track(self,tl_ls,br_ls):
+    def process_track(self,img,tl_ls,br_ls):
         print("tl_ls:",tl_ls)
         print("br_ls:",br_ls)
-        self.pipeline(tl_ls,br_ls)
+        self.pipeline(img,tl_ls,br_ls)
 
 
+    def draw_ids(self,img,box,trk_id):
+        winName = "Tracking"
+        cv.namedWindow(winName,cv.WINDOW_NORMAL)
+        img = cv.putText(img,str(trk_id),(box[0],box[1]),cv.FONT_HERSHEY_SIMPLEX,1.0,(255,255,255),2)
+        cv.imshow(winName,img)
+        cv.waitKey(1)
 
 

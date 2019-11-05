@@ -81,7 +81,7 @@ class tracker_kf:
         #Update
         S = dot(self.H, self.P).dot(self.H.T) + self.R
         k = dot(self.P, self.H.T).dot(inv(S))
-        y = self.z - dot(self.H, x)
+        y = z - dot(self.H, x)
         x = x + dot(k,y)
 
         self.P = self.P - dot(k,self.H).dot(self.P)

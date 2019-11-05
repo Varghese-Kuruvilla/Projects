@@ -387,7 +387,7 @@ if __name__ == "__main__":
             publish_data(box_pose)
 
             #Tracking
-            track.process_track(tl_ls,br_ls)
+            track.process_track(ori_img_1,tl_ls,br_ls)
             #Implementing kalman filter for tracking
             #track_kf.process_kalman(association_id)
         end_time = time.time()
