@@ -31,45 +31,38 @@ class tracker_kf:
                            [0,0,0,1,0,0,0,0]])
 
         #Covariance matrix
-        self.L = 10.0
+        self.L = 0.1
         self.P = np.diag(self.L*np.ones(8))
         
         #Noise matrix R
-        self.R = np.array([[1,0,0,0],
-                           [0,1,0,0],
-                           [0,0,10,0],
-                           [0,0,0,10]])
+        #self.R = np.array([[1,0,0,0],
+        #                   [0,1,0,0],
+        #                   [0,0,10,0],
+        #                   [0,0,0,10]])
 
-        self.Q_comp_mat = np.array([[self.dt**4/4., self.dt**3/2.],
-                                    [self.dt**3/2., self.dt**2]])
+        #self.Q_comp_mat = np.array([[self.dt**4/4., self.dt**3/2.],
+        #                            [self.dt**3/2., self.dt**2]])
+
+        self.Q_comp_mat = np.array([[5.0,10.0],
+                                    [10.0,15.0]])
+        #print("self.Q_comp_mat:",self.Q_comp_mat)
         self.Q = block_diag(self.Q_comp_mat, self.Q_comp_mat, 
                             self.Q_comp_mat, self.Q_comp_mat)
 
+
+        #Process covariance
+        self.R_scaler = 1.0
+        self.R_diag_array = self.R_scaler * np.array([self.L, self.L, self.L, self.L])
+        self.R = np.diag(self.R_diag_array)
+        print("self.R:",self.R)
+
         print("self.Q:",self.Q)
 
-    def init_state(self,j,box):
-        global first
-        cx = box[0] 
-        cy = box[1]
-        w = box[2] - box[4]
-        h = box[3] - box[5]
-        if(first == 0):
-            print("Inside first=0 condition")
-            first = first + 1
-            self.x_state = np.array([cx,cy,w,h,0,0,0,0])
-            self.x_state = np.reshape(self.x_state,(8,1))
-            print("self.x_state:",self.x_state)
-            print("type(self.x_state):",type(self.x_state))
-            print("self.x_state.shape:",self.x_state.shape)
-
-        self.z = np.array([cx,cy,w,h])
-        self.z = np.reshape(self.z,(4,1))
-        updated_state = self.predict_update(self.z)
-        return updated_state
 
     def predict_update(self,z): #z represents the measurement
 
         x = self.x_state
+        print("Current state inside predict_update:",x)
         #print("self.x_state.shape:",self.x_state.shape)
         #print("x:",x)
         #print("x.shape:",x.shape)
@@ -86,7 +79,8 @@ class tracker_kf:
 
         self.P = self.P - dot(k,self.H).dot(self.P)
         self.x_state = x.astype(int)
-        return self.x_state
+        print("State after updation:",self.x_state)
+        #return self.x_state
 
     def predict_only(self):
         x = self.x_state

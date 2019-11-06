@@ -187,12 +187,13 @@ class pose_estimation:
                 self.br = box_all[i][2]
                 self.bl = box_all[i][3]
 
-                tl_ls.append(self.tl)
-                br_ls.append(self.br)
+                #tl_ls.append(self.tl)
+                #br_ls.append(self.br)
                 theta = self.process_theta(ori_img,self.tl,self.tr,self.br,self.bl) #Returns the theta values of the longer edge and the shorter edge in that order
                 self.theta_ls.append(theta)
-
                 depth_est,trans_x,trans_y = self.process_depth(ori_img,self.tl,self.tr,self.br,self.bl)
+                tl_ls.append(self.tl)
+                br_ls.append(self.br)
                 self.box_pose.append([theta , depth_est , trans_x , trans_y])
                 self.plot_on_img(ori_img,self.tl,self.tr,self.br,self.bl)
         
@@ -201,7 +202,9 @@ class pose_estimation:
         cv.namedWindow(winName,cv.WINDOW_NORMAL)
         cv.imshow(winName,ori_img)
         cv.waitKey(1)
-        
+       
+        print("tl_ls:",tl_ls)
+        print("br_ls:",br_ls)
         #return self.box_pose , global_depth_est, 1
         return ori_img,self.box_pose,tl_ls,br_ls,1
 

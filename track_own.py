@@ -113,8 +113,8 @@ class track_id:
         for i in range(0,len(tl_ls)):
             cent_x = (tl_ls[i][0] + br_ls[i][0]) // 2
             cent_y = (tl_ls[i][1] + br_ls[i][1]) // 2
-            width = tl_ls[i][0] - br_ls[i][0]
-            height = tl_ls[i][1] - br_ls[i][1]
+            width = br_ls[i][0] - tl_ls[i][0] 
+            height = br_ls[i][1] - tl_ls[i][1]
 
             temp_centroid = np.array([cent_x,cent_y,width,height])
             self.detections.append(temp_centroid)
@@ -127,12 +127,15 @@ class track_id:
             for trk_idx, det_idx in self.matches:
                 z = self.detections[det_idx]
                 z = np.expand_dims(z,axis=0).T
+                print("Current detection:",z)
                 trk = self.trackers[trk_idx]
+                print("Current tracker state:",trk.boxes)
                 trk.predict_update(z)
                 xx = trk.x_state.T[0].tolist()
                 xx = [xx[0],xx[1],xx[2],xx[3]]
                 x_box[trk_idx] = xx
                 trk.boxes = xx
+                print("Updated tracker state:",trk.boxes)
                 trk.hits = trk.hits + 1
                 trk.no_losses = 0
 
@@ -163,12 +166,12 @@ class track_id:
 
         good_tracker_list = []
         for trk in self.trackers:
-            if((trk.hits >= 1) and (trk.no_losses <= 4)):
-                good_tracker_list.append(trk)
-                box_draw = trk.boxes
-                self.draw_ids(img,box_draw,trk.id)
-                print("box_draw:",box_draw)
-                print("trk.id:",trk.id)
+            #if((trk.hits >= 1) and (trk.no_losses <= 4)):
+            good_tracker_list.append(trk)
+            box_draw = trk.boxes
+            self.draw_ids(img,box_draw,trk.id)
+            print("box_draw:",box_draw)
+            print("trk.id:",trk.id)
 
 
             
