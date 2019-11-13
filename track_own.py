@@ -6,6 +6,10 @@ from kalman_filter import tracker_kf
 from collections import deque
 import cv2 as cv
 
+#Global variables
+max_age = 4
+min_hits = 1
+
 class track_id:
     def __init__(self):
         self.detections = [] #List of detections    
@@ -14,45 +18,7 @@ class track_id:
         self.unmatched_detections = [] #List holding info regarding unmatched detections
         self.matches = []
         self.track_id_list = deque(['0','1','2','3','4','5'])
-
-    #def update(self):
-    #    #Compare the number of elements in centroids and the associate_id dict
-    #    print("self.association_id:",self.association_id)
-    #    flag_match = 0
-    #    if(len(self.centroids) > len(self.association_id)):
-    #        add_new = len(self.centroids) - len(self.association_id)
-    #        rem = 0
-    #    
-    #    elif(len(self.centroids) < len(self.association_id)):
-    #        rem = len(self.association_id) - len(self.centroids)
-    #        add_new = 0
-
-    #    else:
-    #        add_new = 0
-    #        rem = 0
-    #    
-
-    #    print("add_new:",add_new)
-    #    print("rem:",rem)
-    #    self.match_ids()
-
-    #    if(add_new > 0):
-    #        #Check the centroids that are in self.centroids and aren't in self.associate_id
-    #        for i in range(0,len(self.centroids)):
-    #            match = self.centroids[i]
-    #            for (key,value) in (self.association_id.items()):
-    #                if(match[0] == value[0] and match[1] == value[1]):                        
-    #                    flag_match = 1
-
-    #            if(flag_match == 0):
-    #                print("Inside flag_match:",flag_match)
-    #                self.association_id[self.id_no] = match 
-    #                self.id_no = self.id_no + 1 
-    #            flag_match = 0
-
-    #    print("self.association_id:",self.association_id)
         
-
     def update(self):
         cost_mat = np.zeros((len(self.trackers),len(self.detections)),dtype = np.float32)
         for (t,trk) in enumerate(self.trackers):
@@ -120,7 +86,7 @@ class track_id:
             self.detections.append(temp_centroid)
             #print("self.detections:",self.detections)
 
-        self.update()
+        self.update() #Carries out matching using the hungarian algorithm
 
 
         if(self.matches.size > 0):
@@ -161,20 +127,39 @@ class track_id:
                 self.trackers.append(trk) #Adding object to the list self.tracker
                 x_box.append(xx) #x_box 
 
+            if(len(self.unmatched_trackers) > 0):
+                for idx in self.unmatched_trackers:
+                    tmp_trk = self.trackers[idx]
+                    tmp_trk.no_losses = tmp_trk.no_losses + 1
+                    tmp_trk.predict_only()
+                    xx = tmp_trk.x_state
+                    xx = xx.T[0].tolist()
+                    xx = [xx[0], xx[1], xx[2], xx[3]]
+                    tmp_trk.boxes = xx
+                    x_box[idx] = xx
+
+
+
 
         print("Trackers list:",self.trackers)
 
         good_tracker_list = []
         for trk in self.trackers:
-            #if((trk.hits >= 1) and (trk.no_losses <= 4)):
-            good_tracker_list.append(trk)
-            box_draw = trk.boxes
-            self.draw_ids(img,box_draw,trk.id)
-            print("box_draw:",box_draw)
-            print("trk.id:",trk.id)
+            if((trk.hits >= 1) and (trk.no_losses <= 4)):
+                good_tracker_list.append(trk)
+                box_draw = trk.boxes
+                self.draw_ids(img,box_draw,trk.id)
+            #print("box_draw:",box_draw)
+            #print("trk.id:",trk.id)
 
 
-            
+        #Keeping track of the deleted tracks
+        deleted_tracks = filter(lambda x:x.no_losses>max_age,self.trackers)
+
+        for trk in deleted_tracks:
+            self.track_id_list.append(trk.id)
+
+        self.trackers = [x for x in self.trackers if x.no_losses <= max_age]
                     
 
     def process_track(self,img,tl_ls,br_ls):

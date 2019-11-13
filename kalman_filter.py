@@ -11,8 +11,8 @@ class tracker_kf:
 
         self.boxes = []
         self.id = 0 #To store the tracker id
-        self.hits = 0 #BB coordinates
-        self.no_losses = 0 #Number of unmatched tracks
+        self.hits = 0 #Total number of frames in which the brick is detected
+        self.no_losses = 0 #Total number of frames in which the brick is missed
 
         #Process matrix for constant velocity model
         self.F = np.array([[1,0,0,0,self.dt,0,0,0],
