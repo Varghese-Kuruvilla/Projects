@@ -44,7 +44,7 @@ class tracker_kf:
         #                            [self.dt**3/2., self.dt**2]])
 
         self.Q_comp_mat = np.array([[5.0,10.0],
-                                    [10.0,15.0]])
+                                    [10.0,15.0]])   #These values are hardcoded and should be calculated dynamically
         #print("self.Q_comp_mat:",self.Q_comp_mat)
         self.Q = block_diag(self.Q_comp_mat, self.Q_comp_mat, 
                             self.Q_comp_mat, self.Q_comp_mat)

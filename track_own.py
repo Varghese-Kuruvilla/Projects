@@ -30,11 +30,15 @@ class track_id:
 
 
         matched_idx = linear_assignment(cost_mat)
-        
+        print("Matched_idx:",matched_idx)
         self.unmatched_trackers = []
         for (t,trk) in enumerate(self.trackers):
             if(t not in matched_idx[:,0]):
+                print("Inside self.unmatched_trackers")
+                print("t:",t)
                 self.unmatched_trackers.append(t)
+                print("self.unmatched_trackers:",self.unmatched_trackers)
+                print("len(self.unmatched_trackers):",len(self.unmatched_trackers))
 
         self.unmatched_detections = []
         for (d,det) in enumerate(self.detections):
@@ -106,6 +110,7 @@ class track_id:
                 trk.no_losses = 0
 
         if(len(self.unmatched_detections) >0):
+            print("Inside unmatched_detections")
             for idx in self.unmatched_detections:
                 z = self.detections[idx]
                 z = np.expand_dims(z,axis=0).T
@@ -123,20 +128,26 @@ class track_id:
                 print("xx:",xx)
 
                 trk.boxes = xx
+                trk.hits = trk.hits + 1
                 trk.id = self.track_id_list.popleft()
                 self.trackers.append(trk) #Adding object to the list self.tracker
-                x_box.append(xx) #x_box 
+                x_box.append(xx) #x_box
 
-            if(len(self.unmatched_trackers) > 0):
-                for idx in self.unmatched_trackers:
-                    tmp_trk = self.trackers[idx]
-                    tmp_trk.no_losses = tmp_trk.no_losses + 1
-                    tmp_trk.predict_only()
-                    xx = tmp_trk.x_state
-                    xx = xx.T[0].tolist()
-                    xx = [xx[0], xx[1], xx[2], xx[3]]
-                    tmp_trk.boxes = xx
-                    x_box[idx] = xx
+            print("self.unmatched_trackers ver2:",self.unmatched_trackers)
+
+        if(len(self.unmatched_trackers) > 0):
+            print("Inside unmatched_trackers")
+            for idx in self.unmatched_trackers:
+                tmp_trk = self.trackers[idx]
+                tmp_trk.no_losses = tmp_trk.no_losses + 1
+                print("tmp_trk.no_losses:",tmp_trk.no_losses)
+                print("self.trackers[idx].no_losses:",self.trackers[idx].no_losses)
+                tmp_trk.predict_only()
+                xx = tmp_trk.x_state
+                xx = xx.T[0].tolist()
+                xx = [xx[0], xx[1], xx[2], xx[3]]
+                tmp_trk.boxes = xx
+                x_box[idx] = xx
 
 
 
@@ -154,12 +165,20 @@ class track_id:
 
 
         #Keeping track of the deleted tracks
-        deleted_tracks = filter(lambda x:x.no_losses>max_age,self.trackers)
+        #deleted_tracks = filter(lambda x:x.no_losses>max_age,self.trackers)
+        deleted_tracks = [x for x in self.trackers if x.no_losses>max_age]
+        print("len(deleted_tracks):",len(deleted_tracks))
+
+        #print("len(list(deleted_tracks)):",len(list(deleted_tracks)))
 
         for trk in deleted_tracks:
             self.track_id_list.append(trk.id)
+            print("self.track_id_list:",self.track_id_list)
+            #inp = input("Waiting for input")
 
         self.trackers = [x for x in self.trackers if x.no_losses <= max_age]
+        
+        print("self.trackers after deletion:",self.trackers)
                     
 
     def process_track(self,img,tl_ls,br_ls):
